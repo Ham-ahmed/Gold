@@ -327,7 +327,7 @@ print_message $GREEN "======================================================"
 echo ""
 
 # Automatic restart after 60 seconds if no user input
-print_message $CYAN "Automatic restart in 60 seconds... Press Ctrl+C to cancel"
+print_message $CYAN "Automatic restart in 10 seconds... Press Ctrl+C to cancel"
 sleep 60
 
 print_message $YELLOW "=== Starting automatic restart ==="
