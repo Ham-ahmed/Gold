@@ -1,7 +1,7 @@
-Magic Panel Pro Version 6.6 Plugin is a new plugin 
+Magic Panel Gold Version 7.0 Plugin is a new plugin 2026 
 
-of its kind in its design and provides free content
+of its kind in its design and provides .....free content
 
-for all fans of the magical Enigma2...............
+for all fans of the magical Enigma2.....................
 
- ******** Enjooooooooooooooooooooooooooy *********
+ *********** Enjooooooooooooooooooooooooooy ************
