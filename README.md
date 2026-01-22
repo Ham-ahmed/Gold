@@ -4,4 +4,4 @@ of its kind in its design and provides .....free content
 
 for all fans of the magical Enigma2.....................
 
- *********** Enjooooooooooooooooooooooooooy ************
+ ********* Enjooooooooooooooooooooooooooy **********
