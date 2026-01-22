@@ -1,5 +1,5 @@
 #!/bin/bash
-##setup command=wget -q "--no-check-certificate" https://raw.githubusercontent.com/Ham-ahmed/Gold/refs/heads/main/MagicPanelGold_v7.0.sh -O - | /bin/sh
+##setup command=wget -q "--no-check-certificate" https://raw.githubusercontent.com/Ham-ahmed/Gold/refs/heads/main/MagicPanelGold_v7.0.tar.gz -O - | /bin/sh
 
 ######### Only This line to edit with new version ######
 version='6.5.2'
