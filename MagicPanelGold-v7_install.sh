@@ -300,9 +300,9 @@ read -t 30 -n 1 -p "> " restart_answer
 echo ""
 
 if [[ "$restart_answer" =~ ^[Yy]$ ]] || [ -z "$restart_answer" ]; then
-    print_message $GREEN "==================================================================="
-    print_message $YELLOW "===                        Restarting now                      ==="
-    print_message $GREEN "==================================================================="
+    print_message $GREEN "========================================================="
+    print_message $YELLOW "===               Restarting now                     ==="
+    print_message $GREEN "========================================================="
     
     sleep 2
     
@@ -326,9 +326,9 @@ print_message $YELLOW "       MagicPanelGold installation completed"
 print_message $GREEN "======================================================"
 echo ""
 
-# Automatic restart after 60 seconds if no user input
+# Automatic restart after 10 seconds if no user input
 print_message $CYAN "Automatic restart in 10 seconds... Press Ctrl+C to cancel"
-sleep 60
+sleep 10
 
 print_message $YELLOW "=== Starting automatic restart ==="
 # Restart enigma2 automatically
