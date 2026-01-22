@@ -2,7 +2,7 @@
 ##setup command=wget -q "--no-check-certificate" https://raw.githubusercontent.com/Ham-ahmed/Gold/refs/heads/main/MagicPanelGold_v7.0.tar.gz -O - | /bin/sh
 
 ######### Only This line to edit with new version ######
-version='6.5.2'
+version='7.0'
 ##############################################################
 
 TMPPATH=/tmp/MagicPanelGold
