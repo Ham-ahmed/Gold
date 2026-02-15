@@ -285,10 +285,10 @@ sync
 # Success message
 echo ""
 print_message $CYAN "==================================================================="
-print_message $GREEN "===                    Installation Successful!                  ==="
+print_message $GREEN "===                  Installation Successful!                  ==="
 printf "${YELLOW}===                 MagicPanelGold v%-24s===${NC}\n" "$version"
-print_message $BLUE "===               Enigma2 restart required                        ==="
-print_message $GREEN "===              Downloaded by  >>>>   HAMDY_AHMED                ==="
+print_message $BLUE "===               Enigma2 restart required                      ==="
+print_message $GREEN "===              Downloaded by  >>>>   HAMDY_AHMED             ==="
 print_message $CYAN "==================================================================="
 
 sleep 3
@@ -326,9 +326,9 @@ print_message $YELLOW "       MagicPanelGold installation completed"
 print_message $GREEN "======================================================"
 echo ""
 
-# Automatic restart after 10 seconds if no user input
-print_message $CYAN "Automatic restart in 5 seconds... Press Ctrl+C to cancel"
-sleep 10
+# Automatic restart after 3 seconds if no user input
+print_message $CYAN "Automatic restart in 3 seconds... Press Ctrl+C to cancel"
+sleep 3
 
 print_message $YELLOW "=== Starting automatic restart ==="
 # Restart enigma2 automatically
