@@ -38,7 +38,7 @@ command_exists() {
     command -v "$1" >/dev/null 2>&1
 }
 
-# Function to check for updates
+# Function to check and download latest version automatically
 check_for_updates() {
     print_message $BLUE "> Checking for updates..."
     
@@ -50,24 +50,15 @@ check_for_updates() {
     fi
     
     if [ -z "$LATEST_VERSION" ]; then
-        print_message $YELLOW "> Cannot check for updates. Proceeding with installation..."
+        print_message $YELLOW "> Cannot check for updates. Proceeding with current version..."
         return 1
     fi
     
     # Compare versions
     if [ "$version" != "$LATEST_VERSION" ]; then
-        echo ""
-        print_message $GREEN "####################################################"
-        print_message $BLUE "#              New version available!                 #"
-        printf "${YELLOW}#       Current version: %-23s#${NC}\n" "$version        "
-        printf "${BLUE}#       Latest version: %-27s#${NC}\n" "$LATEST_VERSION    "     
-        print_message $YELLOW "#    Please download latest version from:          #"
-        print_message $BLUE "#   https://github.com/Ham-ahmed/Gold            #"
-        print_message $GREEN "####################################################"
-        echo ""
-        print_message $YELLOW "> Press Ctrl+C to cancel and download latest version"
-        print_message $YELLOW "> Continuing with current version in 10 seconds..."
-        sleep 10
+        print_message $GREEN "> New version available: $LATEST_VERSION (current: $version)"
+        print_message $GREEN "> Updating to latest version automatically..."
+        version="$LATEST_VERSION"
         return 0
     else
         print_message $GREEN "> You have the latest version ($version)"
@@ -75,7 +66,7 @@ check_for_updates() {
     fi
 }
 
-# Function to install package with error handling
+# Function to install package with error handling (silent mode)
 install_package() {
     local package=$1
     local package_name=$2
@@ -87,7 +78,6 @@ install_package() {
             apt-get update >/dev/null 2>&1 && apt-get install "$package" -y >/dev/null 2>&1
             return $?
         else
-            print_message $RED "> apt-get not found!"
             return 1
         fi
     else
@@ -95,7 +85,6 @@ install_package() {
             opkg update >/dev/null 2>&1 && opkg install "$package" >/dev/null 2>&1
             return $?
         else
-            print_message $RED "> opkg not found!"
             return 1
         fi
     fi
@@ -126,7 +115,7 @@ fi
 clear
 echo ""
 print_message $CYAN "======================================================"
-print_message $YELLOW "           MagicPanelGold Installer v$version"
+print_message $YELLOW "           MagicPanelGold Auto-Installer"
 print_message $CYAN "======================================================"
 echo ""
 
@@ -136,22 +125,18 @@ Packagesix=""
 Packagerequests="python-requests"
 
 if command_exists python3; then
-    print_message $GREEN "> You have Python3 image"
     PYTHON="PY3"
     Packagesix="python3-six"
     Packagerequests="python3-requests"
 elif command_exists python2; then
-    print_message $GREEN "> You have Python2 image"
     PYTHON="PY2"
     Packagerequests="python-requests"
 elif command_exists python; then
     if python --version 2>&1 | grep -q '^Python 3\.'; then
-        print_message $GREEN "> You have Python3 image"
         PYTHON="PY3"
         Packagesix="python3-six"
         Packagerequests="python3-requests"
     else
-        print_message $GREEN "> You have Python2 image"
         PYTHON="PY2"
         Packagerequests="python-requests"
     fi
@@ -160,7 +145,7 @@ else
     exit 1
 fi
 
-# Check for updates before proceeding
+# Check for updates and update version automatically
 check_for_updates
 
 # Install required packages
@@ -169,17 +154,13 @@ print_message $BLUE "> Checking required packages..."
 
 if [ "$PYTHON" = "PY3" ] && [ ! -z "$Packagesix" ]; then
     if ! check_package "$Packagesix"; then
-        print_message $YELLOW "> Required package $Packagesix not found, installing..."
-        if ! install_package "$Packagesix" "python3-six"; then
-            print_message $YELLOW "> Failed to install $Packagesix, continuing without it..."
-        fi
+        install_package "$Packagesix" "python3-six" >/dev/null 2>&1
     fi
 fi
 
 echo ""
 if ! check_package "$Packagerequests"; then
-    print_message $YELLOW "> $Packagerequests must be installed"
-    if ! install_package "$Packagerequests" "python-requests"; then
+    if ! install_package "$Packagerequests" "python-requests" >/dev/null 2>&1; then
         print_message $RED "> Failed to install $Packagerequests"
         exit 1
     fi
@@ -209,13 +190,13 @@ echo ""
 # Download the plugin
 print_message $BLUE "> Downloading..."
 DOWNLOAD_URL="${GITHUB_BASE}/MagicPanelGold_v${version}.tar.gz"
-if ! wget -q --no-check-certificate --timeout=30 --tries=3 "$DOWNLOAD_URL" -O "MagicPanelGold_v${version}.tar.gz"; then
-    print_message $RED "> Download failed from: $DOWNLOAD_URL"
-    # Try alternative URL
+
+# Try primary download URL
+if ! wget -q --no-check-certificate --timeout=30 --tries=3 "$DOWNLOAD_URL" -O "MagicPanelGold_v${version}.tar.gz" 2>/dev/null; then
+    # Try alternate URL
     ALTERNATE_URL="https://github.com/Ham-ahmed/Gold/raw/main/MagicPanelGold_v${version}.tar.gz"
-    print_message $YELLOW "> Trying alternate URL..."
-    if ! wget -q --no-check-certificate --timeout=30 --tries=2 "$ALTERNATE_URL" -O "MagicPanelGold_v${version}.tar.gz"; then
-        print_message $RED "> Complete download failure!"
+    if ! wget -q --no-check-certificate --timeout=30 --tries=2 "$ALTERNATE_URL" -O "MagicPanelGold_v${version}.tar.gz" 2>/dev/null; then
+        print_message $RED "> Download failed!"
         exit 1
     fi
 fi
@@ -250,7 +231,7 @@ elif [ -d "usr" ]; then
 else
     # Create plugin directory and copy files
     mkdir -p "$PLUGINPATH"
-    find . -name "*.py" -o -name "*.pyo" -o -name "*.pyc" -o -name "*.so" | while read -r file; do
+    find . -name "*.py" -o -name "*.pyo" -o -name "*.pyc" -o -name "*.so" 2>/dev/null | while read -r file; do
         cp --parents "$file" "$PLUGINPATH"/../ 2>/dev/null
     done
     cp -r --parents "locale" "$PLUGINPATH"/../ 2>/dev/null
@@ -259,14 +240,12 @@ fi
 # Verify installation
 print_message $BLUE "> Verifying installation..."
 if [ ! -d "$PLUGINPATH" ]; then
-    # Try to create the plugin directory manually
     mkdir -p "$PLUGINPATH"
-    # Copy any Python files to the plugin directory
     find . -name "*.py" -exec cp {} "$PLUGINPATH"/ \; 2>/dev/null
 fi
 
 if [ ! -d "$PLUGINPATH" ] || [ -z "$(ls -A "$PLUGINPATH" 2>/dev/null)" ]; then
-    print_message $RED "> Installation failed! Plugin not found in expected location."
+    print_message $RED "> Installation failed!"
     exit 1
 fi
 
@@ -293,44 +272,15 @@ print_message $CYAN "===========================================================
 
 sleep 3
 
-# Ask user if they want to restart
+# Automatic restart without asking
 echo ""
-print_message $YELLOW "Do you want to restart Enigma2 now? (y/n)"
-read -t 30 -n 1 -p "> " restart_answer
-echo ""
-
-if [[ "$restart_answer" =~ ^[Yy]$ ]] || [ -z "$restart_answer" ]; then
-    print_message $GREEN "========================================================="
-    print_message $YELLOW "===               Restarting now                     ==="
-    print_message $GREEN "========================================================="
-    
-    sleep 2
-    
-    # Restart enigma2
-    if command_exists systemctl; then
-        systemctl restart enigma2
-    elif command_exists restartGUI; then
-        restartGUI
-    else
-        killall -9 enigma2
-        sleep 1
-        enigma2 >/dev/null 2>&1 &
-    fi
-else
-    print_message $YELLOW "You must manually restart the device to activate the plugin."
-fi
-
-echo ""
-print_message $GREEN "======================================================"
-print_message $YELLOW "       MagicPanelGold installation completed"
-print_message $GREEN "======================================================"
-echo ""
-
-# Automatic restart after 3 seconds if no user input
-print_message $CYAN "Automatic restart in 3 seconds... Press Ctrl+C to cancel"
+print_message $YELLOW "========================================================="
+print_message $YELLOW "===         Automatic restart in 3 seconds            ==="
+print_message $YELLOW "========================================================="
 sleep 3
 
-print_message $YELLOW "=== Starting automatic restart ==="
+print_message $GREEN "=== Starting automatic restart ==="
+
 # Restart enigma2 automatically
 if command_exists systemctl; then
     systemctl restart enigma2
