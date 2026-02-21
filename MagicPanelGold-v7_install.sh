@@ -60,15 +60,14 @@ check_for_updates() {
         print_message $GREEN "####################################################"
         print_message $BLUE "#              New version available!                 #"
         printf "${YELLOW}#       Current version: %-23s#${NC}\n" "$version        "
-        printf "${BLUE}#       Latest version: %-27s#${NC}\n" "$LATEST_VERSION    "
-        print_message $YELLOW "#    Downloading latest version automatically...     #"
+        printf "${BLUE}#       Latest version: %-27s#${NC}\n" "$LATEST_VERSION    "     
+        print_message $YELLOW "#    Please download latest version from:          #"
+        print_message $BLUE "#   https://github.com/Ham-ahmed/Gold            #"
         print_message $GREEN "####################################################"
         echo ""
-        
-        # Update version variable to latest
-        version="$LATEST_VERSION"
-        print_message $GREEN "> Updated to version $version"
-        sleep 2
+        print_message $YELLOW "> Press Ctrl+C to cancel and download latest version"
+        print_message $YELLOW "> Continuing with current version in 10 seconds..."
+        sleep 10
         return 0
     else
         print_message $GREEN "> You have the latest version ($version)"
@@ -292,18 +291,47 @@ print_message $BLUE "===               Enigma2 restart required                 
 print_message $GREEN "===              Downloaded by  >>>>   HAMDY_AHMED             ==="
 print_message $CYAN "==================================================================="
 
-# Automatic restart
-echo ""
-print_message $YELLOW "> Automatic restart in 3 seconds..."
 sleep 3
 
-print_message $GREEN "========================================================="
-print_message $YELLOW "===               Restarting now                     ==="
-print_message $GREEN "========================================================="
+# Ask user if they want to restart
+echo ""
+print_message $YELLOW "Do you want to restart Enigma2 now? (y/n)"
+read -t 30 -n 1 -p "> " restart_answer
+echo ""
 
-sleep 1
+if [[ "$restart_answer" =~ ^[Yy]$ ]] || [ -z "$restart_answer" ]; then
+    print_message $GREEN "========================================================="
+    print_message $YELLOW "===               Restarting now                     ==="
+    print_message $GREEN "========================================================="
+    
+    sleep 2
+    
+    # Restart enigma2
+    if command_exists systemctl; then
+        systemctl restart enigma2
+    elif command_exists restartGUI; then
+        restartGUI
+    else
+        killall -9 enigma2
+        sleep 1
+        enigma2 >/dev/null 2>&1 &
+    fi
+else
+    print_message $YELLOW "You must manually restart the device to activate the plugin."
+fi
 
-# Restart enigma2
+echo ""
+print_message $GREEN "======================================================"
+print_message $YELLOW "       MagicPanelGold installation completed"
+print_message $GREEN "======================================================"
+echo ""
+
+# Automatic restart after 3 seconds if no user input
+print_message $CYAN "Automatic restart in 3 seconds... Press Ctrl+C to cancel"
+sleep 3
+
+print_message $YELLOW "=== Starting automatic restart ==="
+# Restart enigma2 automatically
 if command_exists systemctl; then
     systemctl restart enigma2
 elif command_exists restartGUI; then
