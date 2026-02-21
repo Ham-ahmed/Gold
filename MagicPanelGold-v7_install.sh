@@ -1,5 +1,6 @@
 #!/bin/bash
-## setup command: wget -q "--no-check-certificate" https://raw.githubusercontent.com/Ham-ahmed/Gold/refs/heads/main/install.sh -O - | /bin/sh
+
+##setup command=wget -q "--no-check-certificate" https://raw.githubusercontent.com/Ham-ahmed/Gold/refs/heads/main/install.sh -O - | /bin/sh
 
 ######### Only This line to edit with new version ######
 version='7.0'
@@ -37,18 +38,57 @@ command_exists() {
     command -v "$1" >/dev/null 2>&1
 }
 
-# Function to install package with error handling (silent mode)
+# Function to check for updates
+check_for_updates() {
+    print_message $BLUE "> Checking for updates..."
+    
+    # Try multiple methods to get latest version
+    LATEST_VERSION=$(wget -q --timeout=20 --tries=3 --no-check-certificate -O - "${GITHUB_BASE}/version.txt" 2>/dev/null | head -n 1 | tr -d '\r' | tr -d ' ' | grep -E '^[0-9.]+$')
+    
+    if [ -z "$LATEST_VERSION" ]; then
+        LATEST_VERSION=$(curl -s --connect-timeout 10 --max-time 15 "${GITHUB_BASE}/version.txt" 2>/dev/null | head -n 1 | tr -d '\r' | tr -d ' ' | grep -E '^[0-9.]+$')
+    fi
+    
+    if [ -z "$LATEST_VERSION" ]; then
+        print_message $YELLOW "> Cannot check for updates. Proceeding with installation..."
+        return 1
+    fi
+    
+    # Compare versions
+    if [ "$version" != "$LATEST_VERSION" ]; then
+        echo ""
+        print_message $GREEN "####################################################"
+        print_message $BLUE "#              New version available!                 #"
+        printf "${YELLOW}#       Current version: %-23s#${NC}\n" "$version        "
+        printf "${BLUE}#       Latest version: %-27s#${NC}\n" "$LATEST_VERSION    "
+        print_message $YELLOW "#    Downloading latest version automatically...     #"
+        print_message $GREEN "####################################################"
+        echo ""
+        
+        # Update version variable to latest
+        version="$LATEST_VERSION"
+        print_message $GREEN "> Updated to version $version"
+        sleep 2
+        return 0
+    else
+        print_message $GREEN "> You have the latest version ($version)"
+        return 1
+    fi
+}
+
+# Function to install package with error handling
 install_package() {
     local package=$1
     local package_name=$2
-
+    
     print_message $BLUE "> Installing $package_name..."
-
+    
     if [ "$OSTYPE" = "DreamOs" ]; then
         if command_exists apt-get; then
             apt-get update >/dev/null 2>&1 && apt-get install "$package" -y >/dev/null 2>&1
             return $?
         else
+            print_message $RED "> apt-get not found!"
             return 1
         fi
     else
@@ -56,6 +96,7 @@ install_package() {
             opkg update >/dev/null 2>&1 && opkg install "$package" >/dev/null 2>&1
             return $?
         else
+            print_message $RED "> opkg not found!"
             return 1
         fi
     fi
@@ -86,7 +127,7 @@ fi
 clear
 echo ""
 print_message $CYAN "======================================================"
-print_message $YELLOW "           MagicPanelGold Auto-Installer"
+print_message $YELLOW "           MagicPanelGold Installer v$version"
 print_message $CYAN "======================================================"
 echo ""
 
@@ -96,18 +137,22 @@ Packagesix=""
 Packagerequests="python-requests"
 
 if command_exists python3; then
+    print_message $GREEN "> You have Python3 image"
     PYTHON="PY3"
     Packagesix="python3-six"
     Packagerequests="python3-requests"
 elif command_exists python2; then
+    print_message $GREEN "> You have Python2 image"
     PYTHON="PY2"
     Packagerequests="python-requests"
 elif command_exists python; then
     if python --version 2>&1 | grep -q '^Python 3\.'; then
+        print_message $GREEN "> You have Python3 image"
         PYTHON="PY3"
         Packagesix="python3-six"
         Packagerequests="python3-requests"
     else
+        print_message $GREEN "> You have Python2 image"
         PYTHON="PY2"
         Packagerequests="python-requests"
     fi
@@ -116,19 +161,26 @@ else
     exit 1
 fi
 
+# Check for updates before proceeding
+check_for_updates
+
 # Install required packages
 echo ""
 print_message $BLUE "> Checking required packages..."
 
 if [ "$PYTHON" = "PY3" ] && [ ! -z "$Packagesix" ]; then
     if ! check_package "$Packagesix"; then
-        install_package "$Packagesix" "python3-six" >/dev/null 2>&1
+        print_message $YELLOW "> Required package $Packagesix not found, installing..."
+        if ! install_package "$Packagesix" "python3-six"; then
+            print_message $YELLOW "> Failed to install $Packagesix, continuing without it..."
+        fi
     fi
 fi
 
 echo ""
 if ! check_package "$Packagerequests"; then
-    if ! install_package "$Packagerequests" "python-requests" >/dev/null 2>&1; then
+    print_message $YELLOW "> $Packagerequests must be installed"
+    if ! install_package "$Packagerequests" "python-requests"; then
         print_message $RED "> Failed to install $Packagerequests"
         exit 1
     fi
@@ -155,72 +207,30 @@ fi
 
 echo ""
 
-# --- START OF MODIFIED DOWNLOAD SECTION ---
-print_message $BLUE "> Downloading from GitHub..."
+# Download the plugin
+print_message $BLUE "> Downloading..."
 DOWNLOAD_URL="${GITHUB_BASE}/MagicPanelGold_v${version}.tar.gz"
-OUTPUT_FILE="MagicPanelGold_v${version}.tar.gz"
-
-# Function to check if file is a valid gzip archive
-is_valid_gz() {
-    local file=$1
-    # Check the first two bytes for the gzip magic number (0x1f, 0x8b)
-    od -A n -t x1 -N 2 "$file" 2>/dev/null | grep -q "1f 8b"
-    return $?
-}
-
-download_successful=false
-
-# Try downloading with wget first
-if command_exists wget; then
-    print_message $BLUE "> Attempting download with wget..."
-    if wget -q --no-check-certificate --timeout=30 --tries=3 "$DOWNLOAD_URL" -O "$OUTPUT_FILE"; then
-        if [ -f "$OUTPUT_FILE" ] && is_valid_gz "$OUTPUT_FILE"; then
-            print_message $GREEN "> Download successful with wget (file validated)."
-            download_successful=true
-        else
-            print_message $YELLOW "> wget downloaded file is invalid or corrupted."
-            rm -f "$OUTPUT_FILE"
-        fi
-    else
-        print_message $YELLOW "> wget download failed."
+if ! wget -q --no-check-certificate --timeout=30 --tries=3 "$DOWNLOAD_URL" -O "MagicPanelGold_v${version}.tar.gz"; then
+    print_message $RED "> Download failed from: $DOWNLOAD_URL"
+    # Try alternative URL
+    ALTERNATE_URL="https://github.com/Ham-ahmed/Gold/raw/main/MagicPanelGold_v${version}.tar.gz"
+    print_message $YELLOW "> Trying alternate URL..."
+    if ! wget -q --no-check-certificate --timeout=30 --tries=2 "$ALTERNATE_URL" -O "MagicPanelGold_v${version}.tar.gz"; then
+        print_message $RED "> Complete download failure!"
+        exit 1
     fi
 fi
 
-# If wget failed or file invalid, try with curl
-if [ "$download_successful" = false ] && command_exists curl; then
-    print_message $BLUE "> Attempting download with curl..."
-    if curl -s --connect-timeout 10 --max-time 30 -k -L "$DOWNLOAD_URL" -o "$OUTPUT_FILE"; then
-        if [ -f "$OUTPUT_FILE" ] && is_valid_gz "$OUTPUT_FILE"; then
-            print_message $GREEN "> Download successful with curl (file validated)."
-            download_successful=true
-        else
-            print_message $YELLOW "> curl downloaded file is invalid or corrupted."
-            rm -f "$OUTPUT_FILE"
-        fi
-    else
-        print_message $YELLOW "> curl download failed."
-    fi
-fi
-
-# Check if download was successful
-if [ "$download_successful" = false ]; then
-    print_message $RED "> Download failed after trying all methods. File may not exist on server."
-    print_message $RED "> Please check the version ($version) or your internet connection."
-    rm -rf "$TMPPATH"
+# Check if file was downloaded
+if [ ! -f "MagicPanelGold_v${version}.tar.gz" ]; then
+    print_message $RED "> Download file doesn't exist!"
     exit 1
 fi
-
-# Check if file was downloaded (additional check)
-if [ ! -f "$OUTPUT_FILE" ]; then
-    print_message $RED "> Download file doesn't exist after successful download message!"
-    exit 1
-fi
-# --- END OF MODIFIED DOWNLOAD SECTION ---
 
 # Extract the plugin
 print_message $BLUE "> Extracting files..."
-if ! tar -xzf "$OUTPUT_FILE" 2>/dev/null; then
-    print_message $RED "> Failed to extract files. The archive might be corrupted."
+if ! tar -xzf "MagicPanelGold_v${version}.tar.gz" 2>/dev/null; then
+    print_message $RED "> Failed to extract files!"
     exit 1
 fi
 
@@ -241,7 +251,7 @@ elif [ -d "usr" ]; then
 else
     # Create plugin directory and copy files
     mkdir -p "$PLUGINPATH"
-    find . -name "*.py" -o -name "*.pyo" -o -name "*.pyc" -o -name "*.so" 2>/dev/null | while read -r file; do
+    find . -name "*.py" -o -name "*.pyo" -o -name "*.pyc" -o -name "*.so" | while read -r file; do
         cp --parents "$file" "$PLUGINPATH"/../ 2>/dev/null
     done
     cp -r --parents "locale" "$PLUGINPATH"/../ 2>/dev/null
@@ -250,12 +260,14 @@ fi
 # Verify installation
 print_message $BLUE "> Verifying installation..."
 if [ ! -d "$PLUGINPATH" ]; then
+    # Try to create the plugin directory manually
     mkdir -p "$PLUGINPATH"
+    # Copy any Python files to the plugin directory
     find . -name "*.py" -exec cp {} "$PLUGINPATH"/ \; 2>/dev/null
 fi
 
 if [ ! -d "$PLUGINPATH" ] || [ -z "$(ls -A "$PLUGINPATH" 2>/dev/null)" ]; then
-    print_message $RED "> Installation failed! Plugin directory is empty."
+    print_message $RED "> Installation failed! Plugin not found in expected location."
     exit 1
 fi
 
@@ -280,18 +292,18 @@ print_message $BLUE "===               Enigma2 restart required                 
 print_message $GREEN "===              Downloaded by  >>>>   HAMDY_AHMED             ==="
 print_message $CYAN "==================================================================="
 
-sleep 3
-
-# Automatic restart without asking
+# Automatic restart
 echo ""
-print_message $YELLOW "========================================================="
-print_message $YELLOW "===         Automatic restart in 3 seconds            ==="
-print_message $YELLOW "========================================================="
+print_message $YELLOW "> Automatic restart in 3 seconds..."
 sleep 3
 
-print_message $GREEN "=== Starting automatic restart ==="
+print_message $GREEN "========================================================="
+print_message $YELLOW "===               Restarting now                     ==="
+print_message $GREEN "========================================================="
 
-# Restart enigma2 automatically
+sleep 1
+
+# Restart enigma2
 if command_exists systemctl; then
     systemctl restart enigma2
 elif command_exists restartGUI; then
@@ -299,10 +311,7 @@ elif command_exists restartGUI; then
 else
     killall -9 enigma2
     sleep 1
-    # Check if enigma2 is actually running before trying to start it again in background
-    if ! pgrep -x "enigma2" > /dev/null; then
-        enigma2 >/dev/null 2>&1 &
-    fi
+    enigma2 >/dev/null 2>&1 &
 fi
 
 exit 0
