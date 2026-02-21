@@ -296,7 +296,7 @@ sleep 3
 # Ask user if they want to restart
 echo ""
 print_message $YELLOW "Do you want to restart Enigma2 now? (y/n)"
-read -t 30 -n 1 -p "> " restart_answer
+read -t 10 -n 1 -p "> " restart_answer
 echo ""
 
 if [[ "$restart_answer" =~ ^[Yy]$ ]] || [ -z "$restart_answer" ]; then
