@@ -46,7 +46,7 @@ check_for_updates() {
     LATEST_VERSION=$(wget -q --timeout=20 --tries=3 --no-check-certificate -O - "${GITHUB_BASE}/version.txt" 2>/dev/null | head -n 1 | tr -d '\r' | tr -d ' ' | grep -E '^[0-9.]+$')
     
     if [ -z "$LATEST_VERSION" ]; then
-        LATEST_VERSION=$(curl -s --connect-timeout 5 --max-time 7 "${GITHUB_BASE}/version.txt" 2>/dev/null | head -n 1 | tr -d '\r' | tr -d ' ' | grep -E '^[0-9.]+$')
+        LATEST_VERSION=$(curl -s --connect-timeout 10 --max-time 15 "${GITHUB_BASE}/version.txt" 2>/dev/null | head -n 1 | tr -d '\r' | tr -d ' ' | grep -E '^[0-9.]+$')
     fi
     
     if [ -z "$LATEST_VERSION" ]; then
@@ -66,8 +66,8 @@ check_for_updates() {
         print_message $GREEN "####################################################"
         echo ""
         print_message $YELLOW "> Press Ctrl+C to cancel and download latest version"
-        print_message $YELLOW "> Continuing with current version in 5 seconds..."
-        sleep 5
+        print_message $YELLOW "> Continuing with current version in 10 seconds..."
+        sleep 10
         return 0
     else
         print_message $GREEN "> You have the latest version ($version)"
@@ -285,10 +285,10 @@ sync
 # Success message
 echo ""
 print_message $CYAN "==================================================================="
-print_message $GREEN "===                  Installation Successful!                  ==="
+print_message $GREEN "===                    Installation Successful!                  ==="
 printf "${YELLOW}===                 MagicPanelGold v%-24s===${NC}\n" "$version"
-print_message $BLUE "===               Enigma2 restart required                      ==="
-print_message $GREEN "===              Downloaded by  >>>>   HAMDY_AHMED             ==="
+print_message $BLUE "===               Enigma2 restart required                        ==="
+print_message $GREEN "===              Downloaded by  >>>>   HAMDY_AHMED                ==="
 print_message $CYAN "==================================================================="
 
 sleep 3
@@ -296,7 +296,7 @@ sleep 3
 # Ask user if they want to restart
 echo ""
 print_message $YELLOW "Do you want to restart Enigma2 now? (y/n)"
-read -t 10 -n 1 -p "> " restart_answer
+read -t 30 -n 1 -p "> " restart_answer
 echo ""
 
 if [[ "$restart_answer" =~ ^[Yy]$ ]] || [ -z "$restart_answer" ]; then
@@ -326,9 +326,9 @@ print_message $YELLOW "       MagicPanelGold installation completed"
 print_message $GREEN "======================================================"
 echo ""
 
-# Automatic restart after 3 seconds if no user input
-print_message $CYAN "Automatic restart in 3 seconds... Press Ctrl+C to cancel"
-sleep 3
+# Automatic restart after 10 seconds if no user input
+print_message $CYAN "Automatic restart in 10 seconds... Press Ctrl+C to cancel"
+sleep 10
 
 print_message $YELLOW "=== Starting automatic restart ==="
 # Restart enigma2 automatically
