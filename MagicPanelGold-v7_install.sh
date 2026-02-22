@@ -236,38 +236,47 @@ fi
 # Install the plugin
 print_message $BLUE "> Installing plugin..."
 
+# Create plugin directory
+mkdir -p "$PLUGINPATH"
+
 # Look for the plugin files in common directory structures
 if [ -d "MagicPanelGold" ]; then
-    cp -r "MagicPanelGold"/* "$PLUGINPATH"/../ 2>/dev/null
+    cp -rf "MagicPanelGold"/* "$PLUGINPATH"/ 2>/dev/null
 elif [ -d "MagicPanelGold-main" ]; then
     if [ -d "MagicPanelGold-main/usr" ]; then
-        cp -r "MagicPanelGold-main/usr"/* "/usr/" 2>/dev/null
+        cp -rf "MagicPanelGold-main/usr"/* "/usr/" 2>/dev/null
     else
-        cp -r "MagicPanelGold-main"/* "$PLUGINPATH"/../ 2>/dev/null
+        cp -rf "MagicPanelGold-main"/* "$PLUGINPATH"/ 2>/dev/null
     fi
 elif [ -d "usr" ]; then
-    cp -r "usr"/* "/usr/" 2>/dev/null
+    cp -rf "usr"/* "/usr/" 2>/dev/null
 else
-    # Create plugin directory and copy files
-    mkdir -p "$PLUGINPATH"
-    find . -name "*.py" -o -name "*.pyo" -o -name "*.pyc" -o -name "*.so" | while read -r file; do
-        cp --parents "$file" "$PLUGINPATH"/../ 2>/dev/null
+    # Find and copy all relevant files
+    find . -name "*.py" -o -name "*.pyo" -o -name "*.pyc" -o -name "*.so" -o -name "*.png" -o -name "*.xml" -o -name "*.json" | while read -r file; do
+        dest_dir="$PLUGINPATH/$(dirname "$file")"
+        mkdir -p "$dest_dir"
+        cp -f "$file" "$dest_dir/" 2>/dev/null
     done
-    cp -r --parents "locale" "$PLUGINPATH"/../ 2>/dev/null
+    
+    # Copy locale files if they exist
+    if [ -d "locale" ]; then
+        cp -rf "locale" "$PLUGINPATH/../" 2>/dev/null
+    fi
 fi
 
 # Verify installation
 print_message $BLUE "> Verifying installation..."
-if [ ! -d "$PLUGINPATH" ]; then
-    # Try to create the plugin directory manually
-    mkdir -p "$PLUGINPATH"
-    # Copy any Python files to the plugin directory
-    find . -name "*.py" -exec cp {} "$PLUGINPATH"/ \; 2>/dev/null
-fi
 
 if [ ! -d "$PLUGINPATH" ] || [ -z "$(ls -A "$PLUGINPATH" 2>/dev/null)" ]; then
-    print_message $RED "> Installation failed! Plugin not found in expected location."
-    exit 1
+    print_message $YELLOW "> Plugin not found in expected location. Attempting alternative installation..."
+    
+    # Try to find and copy Python files manually
+    find "$TMPPATH" -name "*.py" -exec cp {} "$PLUGINPATH"/ \; 2>/dev/null
+    
+    if [ -z "$(ls -A "$PLUGINPATH" 2>/dev/null)" ]; then
+        print_message $RED "> Installation failed! Could not copy plugin files."
+        exit 1
+    fi
 fi
 
 # Set correct permissions
@@ -275,6 +284,7 @@ print_message $BLUE "> Setting file permissions..."
 find "$PLUGINPATH" -type f -name "*.py" -exec chmod 644 {} \; 2>/dev/null
 find "$PLUGINPATH" -type f -name "*.pyo" -exec chmod 644 {} \; 2>/dev/null
 find "$PLUGINPATH" -type f -name "*.so" -exec chmod 755 {} \; 2>/dev/null
+find "$PLUGINPATH" -type d -exec chmod 755 {} \; 2>/dev/null
 chmod -R 755 "$PLUGINPATH" 2>/dev/null
 
 # Cleanup
@@ -309,15 +319,26 @@ if [[ "$restart_answer" =~ ^[Yy]$ ]] || [ -z "$restart_answer" ]; then
     # Restart enigma2
     if command_exists systemctl; then
         systemctl restart enigma2
+    elif command_exists init; then
+        init 4
+        sleep 2
+        init 3
+    elif command_exists restart; then
+        restart
     elif command_exists restartGUI; then
         restartGUI
     else
         killall -9 enigma2
         sleep 1
-        enigma2 >/dev/null 2>&1 &
+        if command_exists enigma2; then
+            enigma2 >/dev/null 2>&1 &
+        fi
     fi
 else
     print_message $YELLOW "You must manually restart the device to activate the plugin."
+    print_message $YELLOW "You can restart by:"
+    print_message $BLUE "  - Using the remote: Menu -> Standby/Restart -> Restart Enigma2"
+    print_message $BLUE "  - Telnet command: killall -9 enigma2"
 fi
 
 echo ""
@@ -325,21 +346,5 @@ print_message $GREEN "======================================================"
 print_message $YELLOW "       MagicPanelGold installation completed"
 print_message $GREEN "======================================================"
 echo ""
-
-# Automatic restart after 10 seconds if no user input
-print_message $CYAN "Automatic restart in 10 seconds... Press Ctrl+C to cancel"
-sleep 10
-
-print_message $YELLOW "=== Starting automatic restart ==="
-# Restart enigma2 automatically
-if command_exists systemctl; then
-    systemctl restart enigma2
-elif command_exists restartGUI; then
-    restartGUI
-else
-    killall -9 enigma2
-    sleep 1
-    enigma2 >/dev/null 2>&1 &
-fi
 
 exit 0
