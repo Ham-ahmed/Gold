@@ -38,6 +38,36 @@ command_exists() {
     command -v "$1" >/dev/null 2>&1
 }
 
+# Function to restart Enigma2
+restart_enigma2() {
+    print_message $YELLOW "> Restarting Enigma2..."
+    sleep 2
+    
+    # Try different methods to restart enigma2
+    if command_exists systemctl; then
+        systemctl restart enigma2
+    elif command_exists init; then
+        init 4
+        sleep 2
+        init 3
+    elif command_exists restart; then
+        restart
+    elif command_exists wland; then
+        wland &
+    elif [ -f /etc/rc.local ]; then
+        /etc/rc.local &
+    else
+        killall -9 enigma2
+        sleep 2
+        if command_exists enigma2; then
+            enigma2 >/dev/null 2>&1 &
+        fi
+    fi
+    
+    # Wait a moment to ensure restart starts
+    sleep 3
+}
+
 # Function to check for updates
 check_for_updates() {
     print_message $BLUE "> Checking for updates..."
@@ -295,56 +325,28 @@ sync
 # Success message
 echo ""
 print_message $CYAN "==================================================================="
-print_message $GREEN "===                    Installation Successful!                  ==="
+print_message $GREEN "===              Installation Successful!                       ==="
 printf "${YELLOW}===                 MagicPanelGold v%-24s===${NC}\n" "$version"
-print_message $BLUE "===               Enigma2 restart required                        ==="
-print_message $GREEN "===              Downloaded by  >>>>   HAMDY_AHMED                ==="
+print_message $BLUE "===              Downloaded by  >>>>   HAMDY_AHMED               ==="
 print_message $CYAN "==================================================================="
-
-sleep 3
-
-# Ask user if they want to restart
 echo ""
-print_message $YELLOW "Do you want to restart Enigma2 now? (y/n)"
-read -t 30 -n 1 -p "> " restart_answer
+print_message $YELLOW "Enigma2 will restart automatically after 5 seconds..."
+print_message $BLUE "Press Ctrl+C to cancel"
 echo ""
 
-if [[ "$restart_answer" =~ ^[Yy]$ ]] || [ -z "$restart_answer" ]; then
-    print_message $GREEN "========================================================="
-    print_message $YELLOW "===               Restarting now                     ==="
-    print_message $GREEN "========================================================="
-    
-    sleep 2
-    
-    # Restart enigma2
-    if command_exists systemctl; then
-        systemctl restart enigma2
-    elif command_exists init; then
-        init 4
-        sleep 2
-        init 3
-    elif command_exists restart; then
-        restart
-    elif command_exists restartGUI; then
-        restartGUI
-    else
-        killall -9 enigma2
-        sleep 1
-        if command_exists enigma2; then
-            enigma2 >/dev/null 2>&1 &
-        fi
-    fi
-else
-    print_message $YELLOW "You must manually restart the device to activate the plugin."
-    print_message $YELLOW "You can restart by:"
-    print_message $BLUE "  - Using the remote: Menu -> Standby/Restart -> Restart Enigma2"
-    print_message $BLUE "  - Telnet command: killall -9 enigma2"
-fi
+# Countdown before restart
+for i in {5..1}; do
+    printf "${YELLOW}Restarting in $i seconds...${NC}\r"
+    sleep 1
+done
+echo ""
 
-echo ""
-print_message $GREEN "======================================================"
-print_message $YELLOW "       MagicPanelGold installation completed"
-print_message $GREEN "======================================================"
-echo ""
+# Automatic restart
+print_message $GREEN "========================================================="
+print_message $YELLOW "===            Restarting Enigma2                     ==="
+print_message $GREEN "========================================================="
+
+# Call restart function
+restart_enigma2
 
 exit 0
