@@ -7,14 +7,14 @@ version='8.0'
 ##############################################################
 
 TMPPATH=/tmp/MagicPanelGold
-GITHUB_BASE="https://raw.githubusercontent.com/Ham-ahmed/Gold/refs/heads/main"
+GITHUB_BASE="https://raw.githubusercontent.com/Ham-ahmed/Gold/main"
 GITHUB_RAW="${GITHUB_BASE}"
 
 # Check architecture and set plugin path
-if [ -d /usr/lib64 ]; then
-    PLUGINPATH="/usr/lib64/enigma2/python/Plugins/Extensions/MagicPanelGold"
-else
+if [ ! -d /usr/lib64 ]; then
     PLUGINPATH="/usr/lib/enigma2/python/Plugins/Extensions/MagicPanelGold"
+else
+    PLUGINPATH="/usr/lib64/enigma2/python/Plugins/Extensions/MagicPanelGold"
 fi
 
 # Colors for output
@@ -50,15 +50,18 @@ restart_enigma2() {
         init 4
         sleep 2
         init 3
-    elif command_exists killall; then
+    elif command_exists restart; then
+        restart
+    elif command_exists wland; then
+        wland &
+    elif [ -f /etc/rc.local ]; then
+        /etc/rc.local &
+    else
         killall -9 enigma2
         sleep 2
         if command_exists enigma2; then
             enigma2 >/dev/null 2>&1 &
         fi
-    else
-        print_message $RED "> Could not restart Enigma2 automatically"
-        print_message $YELLOW "> Please restart Enigma2 manually"
     fi
     
     # Wait a moment to ensure restart starts
@@ -70,39 +73,34 @@ check_for_updates() {
     print_message $BLUE "> Checking for updates..."
     
     # Try multiple methods to get latest version
-    LATEST_VERSION=""
+    LATEST_VERSION=$(wget -q --timeout=20 --tries=3 --no-check-certificate -O - "${GITHUB_BASE}/version.txt" 2>/dev/null | head -n 1 | tr -d '\r' | tr -d ' ' | grep -E '^[0-9.]+$')
     
-    if command_exists wget; then
-        LATEST_VERSION=$(wget -q --timeout=10 --tries=2 --no-check-certificate -O - "${GITHUB_BASE}/version.txt" 2>/dev/null | head -n 1 | tr -d '\r' | tr -d ' ')
+    if [ -z "$LATEST_VERSION" ]; then
+        LATEST_VERSION=$(curl -s --connect-timeout 10 --max-time 15 "${GITHUB_BASE}/version.txt" 2>/dev/null | head -n 1 | tr -d '\r' | tr -d ' ' | grep -E '^[0-9.]+$')
     fi
     
-    if [ -z "$LATEST_VERSION" ] && command_exists curl; then
-        LATEST_VERSION=$(curl -s --connect-timeout 5 --max-time 10 "${GITHUB_BASE}/version.txt" 2>/dev/null | head -n 1 | tr -d '\r' | tr -d ' ')
-    fi
-    
-    # Validate version format
-    if [ -n "$LATEST_VERSION" ] && [[ "$LATEST_VERSION" =~ ^[0-9.]+$ ]]; then
-        # Compare versions
-        if [ "$version" != "$LATEST_VERSION" ]; then
-            echo ""
-            print_message $GREEN "####################################################"
-            print_message $BLUE "#              New version available!               #"
-            printf "${YELLOW}#       Current version: %-23s#${NC}\n" "$version        "
-            printf "${BLUE}#       Latest version: %-23s#${NC}\n" "$LATEST_VERSION"     
-            print_message $YELLOW "#    Please download latest version from:         #"
-            print_message $BLUE "#      https://github.com/Ham-ahmed/Gold            #"
-            print_message $GREEN "####################################################"
-            echo ""
-            print_message $YELLOW "> Press Ctrl+C to cancel and download latest version"
-            print_message $YELLOW "> Continuing with current version in 10 seconds..."
-            sleep 10
-            return 0
-        else
-            print_message $GREEN "> You have the latest version ($version)"
-            return 1
-        fi
-    else
+    if [ -z "$LATEST_VERSION" ]; then
         print_message $YELLOW "> Cannot check for updates. Proceeding with installation..."
+        return 1
+    fi
+    
+    # Compare versions
+    if [ "$version" != "$LATEST_VERSION" ]; then
+        echo ""
+        print_message $GREEN "####################################################"
+        print_message $BLUE "#              New version available!               #"
+        printf "${YELLOW}#       Current version: %-23s#${NC}\n" "$version        "
+        printf "${BLUE}#       Latest version: %-27s#${NC}\n" "$LATEST_VERSION    "     
+        print_message $YELLOW "#    Please download latest version from:         #"
+        print_message $BLUE "#      https://github.com/Ham-ahmed/Gold            #"
+        print_message $GREEN "####################################################"
+        echo ""
+        print_message $YELLOW "> Press Ctrl+C to cancel and download latest version"
+        print_message $YELLOW "> Continuing with current version in 10 seconds..."
+        sleep 10
+        return 0
+    else
+        print_message $GREEN "> You have the latest version ($version)"
         return 1
     fi
 }
@@ -116,8 +114,7 @@ install_package() {
     
     if [ "$OSTYPE" = "DreamOs" ]; then
         if command_exists apt-get; then
-            apt-get update >/dev/null 2>&1
-            apt-get install "$package" -y >/dev/null 2>&1
+            apt-get update >/dev/null 2>&1 && apt-get install "$package" -y >/dev/null 2>&1
             return $?
         else
             print_message $RED "> apt-get not found!"
@@ -125,8 +122,7 @@ install_package() {
         fi
     else
         if command_exists opkg; then
-            opkg update >/dev/null 2>&1
-            opkg install "$package" >/dev/null 2>&1
+            opkg update >/dev/null 2>&1 && opkg install "$package" >/dev/null 2>&1
             return $?
         else
             print_message $RED "> opkg not found!"
@@ -140,10 +136,8 @@ check_package() {
     local package=$1
     if [ -f /var/lib/dpkg/status ]; then
         grep -qs "Package: $package" /var/lib/dpkg/status
-        return $?
     elif [ -f /var/lib/opkg/status ]; then
         grep -qs "Package: $package" /var/lib/opkg/status
-        return $?
     else
         return 1
     fi
@@ -203,19 +197,21 @@ check_for_updates
 echo ""
 print_message $BLUE "> Checking required packages..."
 
-if [ "$PYTHON" = "PY3" ] && [ -n "$Packagesix" ]; then
+if [ "$PYTHON" = "PY3" ] && [ ! -z "$Packagesix" ]; then
     if ! check_package "$Packagesix"; then
         print_message $YELLOW "> Required package $Packagesix not found, installing..."
-        install_package "$Packagesix" "python3-six"
+        if ! install_package "$Packagesix" "python3-six"; then
+            print_message $YELLOW "> Failed to install $Packagesix, continuing without it..."
+        fi
     fi
 fi
 
 echo ""
 if ! check_package "$Packagerequests"; then
-    print_message $YELLOW "> $Packagerequests not found, installing..."
+    print_message $YELLOW "> $Packagerequests must be installed"
     if ! install_package "$Packagerequests" "python-requests"; then
         print_message $RED "> Failed to install $Packagerequests"
-        print_message $YELLOW "> Continuing without it, plugin might not work properly..."
+        exit 1
     fi
 fi
 
@@ -223,8 +219,8 @@ echo ""
 
 # Cleanup previous installations
 print_message $BLUE "> Cleaning previous installations..."
-rm -rf "$TMPPATH" > /dev/null 2>&1
-rm -rf "$PLUGINPATH" > /dev/null 2>&1
+[ -d "$TMPPATH" ] && rm -rf "$TMPPATH" > /dev/null 2>&1
+[ -d "$PLUGINPATH" ] && rm -rf "$PLUGINPATH" > /dev/null 2>&1
 
 # Download and install plugin
 print_message $BLUE "> Downloading MagicPanelGold v$version..."
@@ -243,48 +239,20 @@ echo ""
 # Download the plugin
 print_message $BLUE "> Downloading..."
 DOWNLOAD_URL="${GITHUB_BASE}/MagicPanelGold_v${version}.tar.gz"
-
-# Try primary download with wget
-if command_exists wget; then
-    if ! wget -q --no-check-certificate --timeout=20 --tries=2 "$DOWNLOAD_URL" -O "MagicPanelGold_v${version}.tar.gz"; then
-        print_message $YELLOW "> Primary download failed, trying alternate method..."
-        DOWNLOAD_FAILED=1
-    else
-        DOWNLOAD_FAILED=0
-    fi
-elif command_exists curl; then
-    if ! curl -s -k --connect-timeout 20 --max-time 30 "$DOWNLOAD_URL" -o "MagicPanelGold_v${version}.tar.gz"; then
-        print_message $YELLOW "> Primary download failed, trying alternate method..."
-        DOWNLOAD_FAILED=1
-    else
-        DOWNLOAD_FAILED=0
-    fi
-else
-    print_message $RED "> Neither wget nor curl found!"
-    exit 1
-fi
-
-# Try alternate URL if primary failed
-if [ "$DOWNLOAD_FAILED" = "1" ]; then
+if ! wget -q --no-check-certificate --timeout=30 --tries=3 "$DOWNLOAD_URL" -O "MagicPanelGold_v${version}.tar.gz"; then
+    print_message $RED "> Download failed from: $DOWNLOAD_URL"
+    # Try alternative URL
     ALTERNATE_URL="https://github.com/Ham-ahmed/Gold/raw/main/MagicPanelGold_v${version}.tar.gz"
     print_message $YELLOW "> Trying alternate URL..."
-    
-    if command_exists wget; then
-        if ! wget -q --no-check-certificate --timeout=20 --tries=2 "$ALTERNATE_URL" -O "MagicPanelGold_v${version}.tar.gz"; then
-            print_message $RED "> Complete download failure!"
-            exit 1
-        fi
-    elif command_exists curl; then
-        if ! curl -s -k --connect-timeout 20 --max-time 30 "$ALTERNATE_URL" -o "MagicPanelGold_v${version}.tar.gz"; then
-            print_message $RED "> Complete download failure!"
-            exit 1
-        fi
+    if ! wget -q --no-check-certificate --timeout=30 --tries=2 "$ALTERNATE_URL" -O "MagicPanelGold_v${version}.tar.gz"; then
+        print_message $RED "> Complete download failure!"
+        exit 1
     fi
 fi
 
 # Check if file was downloaded
-if [ ! -f "MagicPanelGold_v${version}.tar.gz" ] || [ ! -s "MagicPanelGold_v${version}.tar.gz" ]; then
-    print_message $RED "> Download file doesn't exist or is empty!"
+if [ ! -f "MagicPanelGold_v${version}.tar.gz" ]; then
+    print_message $RED "> Download file doesn't exist!"
     exit 1
 fi
 
@@ -313,21 +281,33 @@ elif [ -d "MagicPanelGold-main" ]; then
 elif [ -d "usr" ]; then
     cp -rf "usr"/* "/usr/" 2>/dev/null
 else
-    # Copy all files to plugin directory
-    cp -rf ./* "$PLUGINPATH"/ 2>/dev/null
+    # Find and copy all relevant files
+    find . -name "*.py" -o -name "*.pyo" -o -name "*.pyc" -o -name "*.so" -o -name "*.png" -o -name "*.xml" -o -name "*.json" | while read -r file; do
+        dest_dir="$PLUGINPATH/$(dirname "$file")"
+        mkdir -p "$dest_dir"
+        cp -f "$file" "$dest_dir/" 2>/dev/null
+    done
+    
+    # Copy locale files if they exist
+    if [ -d "locale" ]; then
+        cp -rf "locale" "$PLUGINPATH/../" 2>/dev/null
+    fi
 fi
 
 # Verify installation
 print_message $BLUE "> Verifying installation..."
 
 if [ ! -d "$PLUGINPATH" ] || [ -z "$(ls -A "$PLUGINPATH" 2>/dev/null)" ]; then
-    print_message $RED "> Installation failed! Could not copy plugin files."
-    exit 1
+    print_message $YELLOW "> Plugin not found in expected location. Attempting alternative installation..."
+    
+    # Try to find and copy Python files manually
+    find "$TMPPATH" -name "*.py" -exec cp {} "$PLUGINPATH"/ \; 2>/dev/null
+    
+    if [ -z "$(ls -A "$PLUGINPATH" 2>/dev/null)" ]; then
+        print_message $RED "> Installation failed! Could not copy plugin files."
+        exit 1
+    fi
 fi
-
-# Count installed files
-file_count=$(find "$PLUGINPATH" -type f 2>/dev/null | wc -l)
-print_message $GREEN "> Successfully installed $file_count files"
 
 # Set correct permissions
 print_message $BLUE "> Setting file permissions..."
